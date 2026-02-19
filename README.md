@@ -88,6 +88,84 @@ The script will:
 
 First run takes 2-3 minutes due to data download. Subsequent runs are faster using cached database.
 
+## 🌟 Advanced Business Intelligence Dashboard
+
+This project now includes an interactive BI application: `chicago_bi_dashboard.py`.
+It reads directly from `FinalDB.db` and transforms the original SQL project into a decision-support dashboard.
+
+### What the dashboard does
+
+- Adds a filter sidebar for community area and crime type analysis
+- Displays executive KPIs (hardship, poverty, school safety, and crime segmentation)
+- Includes a **Socioeconomic & Education** tab to analyze relationships between:
+  - Hardship Index
+  - Poverty Rate
+  - Average School Safety Score
+- Includes a **Crime Hotspots** tab to compare most common crime types in low-income vs high-income areas
+
+### Business value
+
+- Correlates socioeconomic hardship with public safety and education outcomes
+- Helps identify communities where social risk and safety challenges overlap
+- Supports prioritization of interventions using evidence-based visual analytics
+
+### Run the dashboard
+
+1. Generate or refresh the SQLite database:
+```bash
+python chicago_data_analysis.py
+```
+
+2. Launch the BI dashboard:
+```bash
+streamlit run chicago_bi_dashboard.py
+```
+
+3. Open the local Streamlit URL shown in your terminal (usually `http://localhost:8501`)
+
+### Dashboard Preview
+
+![Dashboard Screenshot 1 - Socioeconomic and Education Insights](assets/dashboard_screenshot_1.png)
+
+![Dashboard Screenshot 2 - Crime Hotspots Analysis](assets/dashboard_screenshot_2.png)
+
+### How the dashboard was built
+
+The dashboard was built in `chicago_bi_dashboard.py` using a modular BI workflow:
+
+1. **Data access layer (SQLite + SQL)**
+   - Reads directly from `FinalDB.db` using `sqlite3` and `pandas.read_sql_query`
+   - Uses `LEFT JOIN` queries to combine:
+     - `CENSUS_DATA` (hardship, poverty, income)
+     - `CHICAGO_PUBLIC_SCHOOLS` (safety scores)
+     - `CHICAGO_CRIME_DATA` (crime events and types)
+
+2. **Data quality and missing-value handling**
+   - Uses `COALESCE` and conditional SQL aggregation (`AVG(CASE WHEN ...`) for null-safe metrics
+   - Applies numeric casting/conversion with `pd.to_numeric(..., errors='coerce')`
+   - Excludes or labels incomplete rows safely (for example, unknown income segment)
+
+3. **Interactive filtering and segmentation**
+   - Streamlit sidebar filters for:
+     - Community area
+     - Crime type
+     - Income threshold split (low-income vs high-income)
+   - Dynamic filtering updates all KPIs and charts in real time
+
+4. **BI visualization layer (Plotly + Streamlit)**
+   - KPI cards for executive-level monitoring
+   - **Socioeconomic & Education tab**:
+     - Bubble scatter plot (poverty vs safety, colored by hardship)
+     - Correlation heatmap (hardship, poverty, safety)
+   - **Crime Hotspots tab**:
+     - Grouped bar comparison of top crime types by income segment
+     - Donut chart for low-income vs high-income crime share
+     - Hotspot table for most affected communities
+
+5. **Performance and usability**
+   - Uses Streamlit caching (`@st.cache_data`) to keep interactions responsive
+   - Professional layout with custom styling, clear tab organization, and business-focused narrative
+
 ## 📊 Problems Solved
 
 ### Problem 1: Total Crime Count
@@ -142,10 +220,14 @@ Advanced subquery combining crime count with census data lookup.
 
 ## 📁 Project Structure
 
-```
+``` 
 chicago-data-analysis/
 ├── chicago_data_analysis.py    # Main analysis script
+├── chicago_bi_dashboard.py     # Advanced BI dashboard (Streamlit + Plotly)
 ├── FinalDB.db                  # SQLite database (generated)
+├── assets/
+│   ├── dashboard_screenshot_1.png
+│   └── dashboard_screenshot_2.png
 ├── README.md                   # This file
 └── .gitignore                  # Git ignore rules
 ```
