@@ -4,8 +4,15 @@
 [![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![GitHub](https://img.shields.io/badge/GitHub-Repository-black.svg)](https://github.com/yourusername/chicago-data-analysis)
 [![Status](https://img.shields.io/badge/Status-Active-brightgreen.svg)]()
+[![Live Dashboard](https://img.shields.io/badge/Live-Dashboard-orange.svg)](https://sql-chicago-data-analysis-qnpxgqmub8uxxi3svrbxnf.streamlit.app/)
 
 A comprehensive SQL analysis project examining socioeconomic indicators, public schools, and crime data for Chicago communities.
+
+## 🌐 Live BI Dashboard
+
+**Public app URL:** https://sql-chicago-data-analysis-qnpxgqmub8uxxi3svrbxnf.streamlit.app/
+
+Beyond the original course requirements, this project was extended into a production-style BI deliverable with an interactive Streamlit dashboard, advanced KPI views, and cloud deployment for browser-based access.
 
 ---
 
