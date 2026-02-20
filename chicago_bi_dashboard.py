@@ -9,6 +9,7 @@ This Streamlit app reads from FinalDB.db and provides interactive BI views on:
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 import sqlite3
 from typing import Sequence
@@ -19,8 +20,111 @@ import plotly.express as px
 import streamlit as st
 
 
-# Resolve the database path relative to this dashboard file.
-DB_PATH = Path(__file__).resolve().parent / "FinalDB.db"
+# Default database filename.
+DB_FILENAME = "FinalDB.db"
+REQUIRED_TABLES = (
+    "CENSUS_DATA",
+    "CHICAGO_PUBLIC_SCHOOLS",
+    "CHICAGO_CRIME_DATA",
+)
+
+
+def resolve_db_path() -> tuple[Path, list[Path]]:
+    """
+    Resolve the SQLite database path across common execution contexts.
+
+    Search order:
+    1) Environment variable CHICAGO_DB_PATH (if set)
+    2) Next to this script file
+    3) Current working directory
+    """
+    candidates: list[Path] = []
+
+    env_path = os.getenv("CHICAGO_DB_PATH")
+    if env_path:
+        candidates.append(Path(env_path).expanduser().resolve())
+
+    script_dir = Path(__file__).resolve().parent
+    candidates.append((script_dir / DB_FILENAME).resolve())
+    candidates.append((Path.cwd() / DB_FILENAME).resolve())
+
+    # Preserve order while removing duplicates.
+    unique_candidates: list[Path] = []
+    seen: set[Path] = set()
+    for candidate in candidates:
+        if candidate not in seen:
+            unique_candidates.append(candidate)
+            seen.add(candidate)
+
+    for candidate in unique_candidates:
+        if candidate.exists():
+            return candidate, unique_candidates
+
+    # Fall back to script directory path for any write/error context.
+    return (script_dir / DB_FILENAME).resolve(), unique_candidates
+
+
+# Resolve DB path once for this app session.
+DB_PATH, DB_SEARCH_PATHS = resolve_db_path()
+
+
+def has_required_tables(db_path: Path) -> bool:
+    """Return True when the SQLite DB exists and contains all required tables."""
+    if not db_path.exists():
+        return False
+
+    try:
+        with sqlite3.connect(db_path) as conn:
+            query = """
+            SELECT name
+            FROM sqlite_master
+            WHERE type = 'table'
+              AND name IN ('CENSUS_DATA', 'CHICAGO_PUBLIC_SCHOOLS', 'CHICAGO_CRIME_DATA')
+            """
+            found = pd.read_sql_query(query, conn)["name"].tolist()
+        return set(found) == set(REQUIRED_TABLES)
+    except Exception:
+        return False
+
+
+@st.cache_resource(show_spinner=False)
+def bootstrap_database_if_needed(db_path_str: str) -> tuple[bool, bool, str]:
+    """
+    Ensure the SQLite DB exists with required tables.
+
+    Returns:
+    - ready: database is usable
+    - created_now: database was created during this call
+    - message: status/error details
+    """
+    db_path = Path(db_path_str)
+
+    if has_required_tables(db_path):
+        return True, False, "Database already available."
+
+    try:
+        from chicago_data_analysis import ChicagoDataAnalysis
+    except Exception as exc:
+        return False, False, f"Could not import data loader: {exc}"
+
+    analyzer = None
+    try:
+        analyzer = ChicagoDataAnalysis(db_name=str(db_path))
+        analyzer.connect_db()
+        analyzer.load_data_from_urls()
+    except Exception as exc:
+        return False, False, f"Failed while downloading/building database: {exc}"
+    finally:
+        if analyzer is not None:
+            try:
+                analyzer.close_db()
+            except Exception:
+                pass
+
+    if has_required_tables(db_path):
+        return True, True, "Database created successfully."
+
+    return False, False, "Database build completed but required tables were not found."
 
 
 def configure_page() -> None:
@@ -458,11 +562,24 @@ def main() -> None:
         unsafe_allow_html=True,
     )
 
-    if not DB_PATH.exists():
-        st.error(
-            "Database not found. Generate it first by running: `python chicago_data_analysis.py`"
-        )
-        st.stop()
+    if not has_required_tables(DB_PATH):
+        with st.spinner(
+            "Setting up data for first run: downloading Chicago datasets and building SQLite database..."
+        ):
+            ready, created_now, message = bootstrap_database_if_needed(str(DB_PATH))
+
+        if not ready:
+            searched_paths = "\n".join([f"- `{path}`" for path in DB_SEARCH_PATHS])
+            st.error(
+                "Database setup failed. You can also build locally with: "
+                "`python chicago_data_analysis.py`"
+            )
+            st.markdown("Searched locations:\n" + searched_paths)
+            st.code(message)
+            st.stop()
+
+        if created_now:
+            st.success("First-run data setup complete. Dashboard is ready.")
 
     socio_df = load_socioeducation_dataset()
     crime_df = load_crime_dataset()
@@ -496,7 +613,7 @@ def main() -> None:
         render_crime_hotspots_tab(filtered_crime, income_threshold, top_n)
 
     st.caption(
-        "Data source: `FinalDB.db` tables `CENSUS_DATA`, `CHICAGO_PUBLIC_SCHOOLS`, and `CHICAGO_CRIME_DATA`."
+        f"Data source: `{DB_PATH}` tables `CENSUS_DATA`, `CHICAGO_PUBLIC_SCHOOLS`, and `CHICAGO_CRIME_DATA`."
     )
 
 

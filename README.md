@@ -123,6 +123,17 @@ streamlit run chicago_bi_dashboard.py
 
 3. Open the local Streamlit URL shown in your terminal (usually `http://localhost:8501`)
 
+### Deploy on Streamlit Community Cloud
+
+1. Push this repository to GitHub.
+2. Go to `https://share.streamlit.io`.
+3. Create a new app and select `chicago_bi_dashboard.py` as the entry point.
+
+Important:
+- `FinalDB.db` is intentionally excluded from Git (`.gitignore`).
+- On first cloud startup, the dashboard now auto-builds `FinalDB.db` by running the existing ETL logic from `chicago_data_analysis.py`.
+- The first load can take a few minutes because datasets are downloaded and written to SQLite.
+
 ### Dashboard Preview
 
 ![Dashboard Screenshot 1 - Socioeconomic and Education Insights](assets/dashboard_screenshot_1.png)
